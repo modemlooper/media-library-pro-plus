@@ -1,13 +1,16 @@
 <?php
-/**
- * Plugin Name: Media Library Pro Plus
- * Description: Filters the media library to show images without alt text in the content, with a filter for post type.
- * Version: 1.0.0
- * Author: modemlooper
- * 
- * This plugin adds functionality to filter media library items by:
- * 1. Post type - Shows media attached to specific post types
- * 2. Alt text status - Can show only media items missing alt text
+ /**
+ * Plugin Name:       Media Library Pro Plus
+ * Description:       Media library enhancements.
+ * Requires at least: 6.5
+ * Requires PHP:      7.0
+ * Version:           1.0.0
+ * Author:            modemlooper
+ * License:           GPL-2.0-or-later
+ * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain:       media-library-pro-plus
+ *
+ * @package CreateBlock
  */
 
 // Prevent direct access to this file
