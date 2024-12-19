@@ -18,6 +18,8 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit; // Exit if accessed directly
 }
 
+define( 'MEDIA_LIBRARY_PRO_PLUS_URL', plugins_url( basename( __DIR__ ) ) );
+
 // Load plugin files
 require_once( plugin_dir_path( __FILE__ ) . 'includes/post-type-filter.php' );
 require_once( plugin_dir_path( __FILE__ ) . 'includes/alt-text-filter.php' );
