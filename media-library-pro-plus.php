@@ -4,7 +4,7 @@
  * Description:       Media library enhancements.
  * Requires at least: 6.5
  * Requires PHP:      7.0
- * Version:           1.0.0
+ * Version:           1.0.1
  * Author:            modemlooper
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
@@ -25,6 +25,8 @@ require_once( plugin_dir_path( __FILE__ ) . 'includes/post-type-filter.php' );
 require_once( plugin_dir_path( __FILE__ ) . 'includes/alt-text-filter.php' );
 require_once( plugin_dir_path( __FILE__ ) . 'includes/alt-text-column.php' );
 require_once( plugin_dir_path( __FILE__ ) . 'includes/broken-image-filter.php' );
+require_once( plugin_dir_path( __FILE__ ) . 'includes/delete-unattached.php' );
+require_once( plugin_dir_path( __FILE__ ) . 'includes/delete-broken.php' );
 
 
 /**
