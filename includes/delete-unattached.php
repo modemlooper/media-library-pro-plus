@@ -130,9 +130,12 @@ function delete_unattached_media_page() {
             <p>Process completed successfully!</p>
         </div>
         <p>This tool will delete all unattached media items that don't have a year/month structure in their URLs.</p>
-        <div id="start-deletion">
+        <div id="start-deletion" style="display: flex; align-items: center;">
             <button type="button" id="start-deletion-btn" class="button button-primary">
                 Start Deletion Process
+            </button>
+            <button type="button" id="cancel-deletion-btn" class="button button-secondary" style="display: none; margin-left: 10px;">
+                Cancel Deletion
             </button>
         </div>
     </div>

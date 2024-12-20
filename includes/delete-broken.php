@@ -139,10 +139,13 @@ function delete_broken_media_page() {
         <div id="completion-notice" class="notice notice-success" style="display: none;">
             <p>Process completed successfully!</p>
         </div>
-        <p>This tool will delete all unattached media items that have broken or missing files.</p>
-        <div id="start-deletion">
+        <p>This tool will delete all media items that have broken or missing files.</p>
+        <div id="start-deletion" style="display: flex; align-items: center;">
             <button type="button" id="start-deletion-btn" class="button button-primary">
                 Start Deletion Process
+            </button>
+            <button type="button" id="cancel-deletion-btn" class="button button-secondary" style="display: none; margin-left: 10px;">
+                Cancel Deletion
             </button>
         </div>
     </div>

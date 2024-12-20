@@ -4,6 +4,7 @@ jQuery(document).ready(function($) {
     let deletedItems = 0;
     let skippedItems = 0;
     let errorCount = 0;
+    let isCancelled = false;
 
     function updateProgress() {
         const percentage = totalItems > 0 ? (processedItems / totalItems) * 100 : 0;
@@ -15,7 +16,19 @@ jQuery(document).ready(function($) {
         $('#error-count').text(errorCount);
     }
 
+    function resetUI() {
+        $('#start-deletion-btn').prop('disabled', false);
+        $('#cancel-deletion-btn').hide();
+        $('#deletion-progress').hide();
+        isCancelled = false;
+    }
+
     function processBatch(offset = 0) {
+        if (isCancelled) {
+            resetUI();
+            return;
+        }
+
         $.ajax({
             url: brokenMediaDeletion.ajaxurl,
             type: 'POST',
@@ -42,18 +55,23 @@ jQuery(document).ready(function($) {
                     // Update progress UI
                     updateProgress();
 
-                    // Process next batch if not done
-                    if (!data.done) {
+                    // Process next batch if not done and not cancelled
+                    if (!data.done && !isCancelled) {
                         processBatch(offset + 10);
                     } else {
-                        $('#completion-notice').show();
+                        if (!isCancelled) {
+                            $('#completion-notice').show();
+                        }
+                        resetUI();
                     }
                 } else {
                     alert('Error processing media items. Please try again.');
+                    resetUI();
                 }
             },
             error: function() {
                 alert('Error processing media items. Please try again.');
+                resetUI();
             }
         });
     }
@@ -69,13 +87,22 @@ jQuery(document).ready(function($) {
         deletedItems = 0;
         skippedItems = 0;
         errorCount = 0;
+        isCancelled = false;
 
         // Show progress UI
         $('#deletion-progress').show();
         $('#completion-notice').hide();
         $(this).prop('disabled', true);
+        $('#cancel-deletion-btn').show();
 
         // Start processing
         processBatch();
+    });
+
+    $('#cancel-deletion-btn').on('click', function() {
+        if (confirm('Are you sure you want to cancel the deletion process?')) {
+            isCancelled = true;
+            $(this).prop('disabled', true).text('Cancelling...');
+        }
     });
 });
