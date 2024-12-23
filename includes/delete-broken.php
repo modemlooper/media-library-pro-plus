@@ -17,7 +17,7 @@ function delete_broken_media_items($offset = 0) {
     $args = array(
         'post_type' => 'attachment',
         'post_status' => 'inherit',
-        'posts_per_page' => 10,
+        'posts_per_page' => 30,
         'offset' => $offset,
         //'post_parent' => 0, // Only get unattached media
     );

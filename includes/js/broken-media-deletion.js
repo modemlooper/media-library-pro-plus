@@ -57,7 +57,7 @@ jQuery(document).ready(function($) {
 
                     // Process next batch if not done and not cancelled
                     if (!data.done && !isCancelled) {
-                        processBatch(offset + 10);
+                        processBatch(offset + 30);
                     } else {
                         if (!isCancelled) {
                             $('#completion-notice').show();
