@@ -10,14 +10,15 @@ function delete_unattached_media_without_date($offset = 0) {
         'skipped' => 0,
         'errors' => array(),
         'done' => false,
-        'total' => 0
+        'total' => 0,
+        'current_position' => $offset + 1
     );
 
     // Get all unattached media items
     $args = array(
         'post_type' => 'attachment',
         'post_status' => 'inherit',
-        'posts_per_page' => 10,
+        'posts_per_page' => 1,
         'offset' => $offset,
         'post_parent' => 0, // Only get unattached media
     );
@@ -70,6 +71,39 @@ function handle_media_deletion_ajax() {
 add_action('wp_ajax_delete_unattached_media', 'handle_media_deletion_ajax');
 
 /**
+ * Get total count of unattached media items
+ */
+function get_total_unattached_media() {
+    $args = array(
+        'post_type' => 'attachment',
+        'post_status' => 'inherit',
+        'posts_per_page' => -1,
+        'fields' => 'ids',
+        'post_parent' => 0
+    );
+
+    $query = new WP_Query($args);
+    return array(
+        'total' => $query->found_posts
+    );
+}
+
+/**
+ * AJAX handler for getting total count
+ */
+function handle_get_total_unattached_ajax() {
+    check_ajax_referer('delete_unattached_media_action', 'nonce');
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Insufficient permissions');
+    }
+
+    $results = get_total_unattached_media();
+    wp_send_json_success($results);
+}
+add_action('wp_ajax_get_total_unattached_media', 'handle_get_total_unattached_ajax');
+
+/**
  * Hook to add admin menu for the deletion functionality
  */
 add_action('admin_menu', 'register_media_cleanup_menu');
@@ -115,28 +149,39 @@ function delete_unattached_media_page() {
     ?>
     <div class="wrap">
         <h1>Delete Unattached Media</h1>
+        <p>This tool will delete all unattached media items that don't have a year/month structure in their URLs.</p>
+        
+        <div id="pre-start-options" style="margin: 20px 0;">
+            <div id="skip-navigation" style="margin-bottom: 10px;">
+                <label for="skip-to-position" style="margin-right: 10px;">Start from position:</label>
+                <input type="number" id="skip-to-position" min="1" value="1" class="small-text" style="margin-right: 5px;">
+                <span id="total-items-info" style="margin-left: 5px;">Loading total items...</span>
+            </div>
+            <button type="button" id="start-deletion-btn" class="button button-primary" disabled>
+                Start Deletion Process
+            </button>
+            <button type="button" id="cancel-deletion-btn" class="button button-secondary" style="display: none; margin-left: 10px;">
+                Cancel Deletion
+            </button>
+        </div>
+
         <div id="deletion-progress" style="display: none;">
             <div class="progress-bar-wrapper" style="margin: 20px 0; background: #d4d4d4; height: 20px; border-radius: 10px; overflow: hidden;">
                 <div id="progress-bar" style="width: 0%; height: 100%; background: #2271b1; transition: width 0.3s ease;"></div>
             </div>
-            <div id="progress-text" style="margin: 10px 0;">Processing: <span id="processed-count">0</span> / <span id="total-count">0</span></div>
+            <div id="progress-text" style="margin: 10px 0;">
+                Processing: <span id="processed-count">0</span> / <span id="total-count">0</span>
+                <span id="position-info" style="margin-left: 10px;"></span>
+            </div>
             <div id="results" style="margin: 10px 0;">
                 <p>Deleted: <span id="deleted-count">0</span></p>
                 <p>Skipped: <span id="skipped-count">0</span></p>
                 <p>Errors: <span id="error-count">0</span></p>
             </div>
         </div>
+        
         <div id="completion-notice" class="notice notice-success" style="display: none;">
             <p>Process completed successfully!</p>
-        </div>
-        <p>This tool will delete all unattached media items that don't have a year/month structure in their URLs.</p>
-        <div id="start-deletion" style="display: flex; align-items: center;">
-            <button type="button" id="start-deletion-btn" class="button button-primary">
-                Start Deletion Process
-            </button>
-            <button type="button" id="cancel-deletion-btn" class="button button-secondary" style="display: none; margin-left: 10px;">
-                Cancel Deletion
-            </button>
         </div>
     </div>
     <?php
