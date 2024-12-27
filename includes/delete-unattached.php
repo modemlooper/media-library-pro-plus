@@ -33,19 +33,27 @@ function delete_unattached_media_without_date($offset = 0) {
             $attachment_id = get_the_ID();
             $attachment_url = wp_get_attachment_url($attachment_id);
 
-            // Check if URL contains year/month pattern (YYYY/MM)
-            if (!preg_match('/\/\d{4}\/\d{2}\//', $attachment_url)) {
-                // No year/month in URL, proceed with deletion
-                $deleted = wp_delete_attachment($attachment_id, true);
+            $deleted = wp_delete_attachment($attachment_id, true);
                 
-                if ($deleted) {
-                    $results['deleted']++;
-                } else {
-                    $results['errors'][] = sprintf('Failed to delete attachment ID: %d', $attachment_id);
-                }
+            if ($deleted) {
+                $results['deleted']++;
             } else {
-                $results['skipped']++;
+                $results['errors'][] = sprintf('Failed to delete attachment ID: %d', $attachment_id);
             }
+
+            // Check if URL contains year/month pattern (YYYY/MM)
+            // if (!preg_match('/\/\d{4}\/\d{2}\//', $attachment_url)) {
+            //     // No year/month in URL, proceed with deletion
+            //     $deleted = wp_delete_attachment($attachment_id, true);
+                
+            //     if ($deleted) {
+            //         $results['deleted']++;
+            //     } else {
+            //         $results['errors'][] = sprintf('Failed to delete attachment ID: %d', $attachment_id);
+            //     }
+            // } else {
+            //     $results['skipped']++;
+            // }
         }
     }
 

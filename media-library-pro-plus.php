@@ -27,6 +27,7 @@ require_once( plugin_dir_path( __FILE__ ) . 'includes/alt-text-column.php' );
 require_once( plugin_dir_path( __FILE__ ) . 'includes/broken-image-filter.php' );
 require_once( plugin_dir_path( __FILE__ ) . 'includes/delete-unattached.php' );
 require_once( plugin_dir_path( __FILE__ ) . 'includes/delete-broken.php' );
+require_once( plugin_dir_path( __FILE__ ) . 'includes/attach-content-images.php' );
 
 
 /**

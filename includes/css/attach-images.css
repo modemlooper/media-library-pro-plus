@@ -1,0 +1,69 @@
+.mlpp-select-wrapper {
+    margin: 20px 0;
+}
+
+.mlpp-select-wrapper select {
+    min-width: 200px;
+    margin-right: 10px;
+}
+
+.mlpp-progress-wrapper {
+    margin: 20px 0;
+    max-width: 500px;
+}
+
+.mlpp-progress-bar {
+    width: 100%;
+    height: 20px;
+    background-color: #d4d4d4;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+#mlpp-progress {
+    height: 100%;
+    background-color: #2271b1;
+    width: 0;
+    transition: width 0.3s ease-in-out;
+}
+
+#mlpp-progress-text {
+    font-size: 14px;
+    color: #50575e;
+}
+
+#mlpp-results {
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+.mlpp-post-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #dcdcde;
+    padding: 10px 20px;
+    background: #fff;
+    margin-top: 10px;
+}
+
+.mlpp-post-list li {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.mlpp-post-list li:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.mlpp-post-list a {
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.mlpp-post-list a:hover {
+    text-decoration: underline;
+}
