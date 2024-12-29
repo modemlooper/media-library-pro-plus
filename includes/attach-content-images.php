@@ -175,6 +175,66 @@ function mlpp_process_posts() {
 
             $image_urls = array_unique($image_urls);
 
+            $images_to_process = array();
+            foreach ($image_urls as $image_url) {
+                $image_url = str_replace(array('"', "'"), '', $image_url);
+                
+                // Check if image is already attached
+                $existing_attachment = get_posts(array(
+                    'post_type' => 'attachment',
+                    'post_parent' => $post->ID,
+                    'posts_per_page' => 1,
+                    'meta_query' => array(
+                        array(
+                            'key' => '_wp_attached_file',
+                            'value' => basename($image_url),
+                            'compare' => 'LIKE'
+                        )
+                    )
+                ));
+
+                if (!empty($existing_attachment)) {
+                    error_log("MLPP: Image already attached to post: " . $image_url);
+                    continue;
+                }
+
+                // Convert relative URLs to absolute URLs
+                if (strpos($image_url, 'http') !== 0) {
+                    $original_url = $image_url;
+                    if (strpos($image_url, '//') === 0) {
+                        $image_url = 'https:' . $image_url;
+                    } else if (strpos($image_url, '/wp-content') === 0) {
+                        $image_url = $site_url . $image_url;
+                    } else if (strpos($image_url, '/') === 0) {
+                        $image_url = $site_url . $image_url;
+                    } else {
+                        $image_url = $site_url . '/' . $image_url;
+                    }
+                    error_log("MLPP: Converted relative URL from '$original_url' to '$image_url'");
+                }
+
+                $images_to_process[] = array(
+                    'url' => $image_url,
+                    'post_id' => $post->ID,
+                    'post_title' => $post->post_title
+                );
+            }
+
+            // Return images for preview if any found
+            if (!empty($images_to_process)) {
+                wp_send_json_success(array(
+                    'done' => false,
+                    'processed' => $processed,
+                    'attached' => $total_attached,
+                    'images' => $images_to_process,
+                    'post' => array(
+                        'ID' => $post->ID,
+                        'title' => $post->post_title
+                    )
+                ));
+                return;
+            }
+
             foreach ($image_urls as $image_url) {
                 try {
                     // Clean the URL
@@ -314,3 +374,53 @@ function mlpp_process_posts() {
     }
 }
 add_action('wp_ajax_mlpp_process_posts', 'mlpp_process_posts');
+
+function mlpp_attach_single_image() {
+    check_ajax_referer('mlpp-attach-images', 'nonce');
+
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(array('message' => 'Insufficient permissions'));
+        return;
+    }
+
+    $image_url = isset($_POST['image_url']) ? sanitize_text_field($_POST['image_url']) : '';
+    $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
+
+    if (empty($image_url) || empty($post_id)) {
+        wp_send_json_error(array('message' => 'Missing required parameters'));
+        return;
+    }
+
+    try {
+        require_once(ABSPATH . 'wp-admin/includes/media.php');
+        require_once(ABSPATH . 'wp-admin/includes/file.php');
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+
+        // Download and attach the image
+        $tmp = download_url($image_url);
+        if (is_wp_error($tmp)) {
+            throw new Exception($tmp->get_error_message());
+        }
+
+        $file_array = array(
+            'name' => basename($image_url),
+            'tmp_name' => $tmp
+        );
+
+        $attachment_id = media_handle_sideload($file_array, $post_id);
+
+        if (is_wp_error($attachment_id)) {
+            @unlink($tmp);
+            throw new Exception($attachment_id->get_error_message());
+        }
+
+        wp_send_json_success(array(
+            'message' => 'Image attached successfully',
+            'attachment_id' => $attachment_id
+        ));
+    } catch (Exception $e) {
+        error_log("MLPP: Error attaching image: " . $e->getMessage());
+        wp_send_json_error(array('message' => $e->getMessage()));
+    }
+}
+add_action('wp_ajax_mlpp_attach_single_image', 'mlpp_attach_single_image');

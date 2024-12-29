@@ -4,7 +4,7 @@
  * Description:       Media library enhancements.
  * Requires at least: 6.5
  * Requires PHP:      7.0
- * Version:           1.0.5
+ * Version:           1.0.6
  * Author:            modemlooper
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
@@ -28,6 +28,9 @@ require_once( plugin_dir_path( __FILE__ ) . 'includes/broken-image-filter.php' )
 require_once( plugin_dir_path( __FILE__ ) . 'includes/delete-unattached.php' );
 require_once( plugin_dir_path( __FILE__ ) . 'includes/delete-broken.php' );
 require_once( plugin_dir_path( __FILE__ ) . 'includes/attach-content-images.php' );
+require_once( plugin_dir_path( __FILE__ ) . 'includes/attach-featured-images.php' );
+require_once( plugin_dir_path( __FILE__ ) . 'includes/remove-duplicate-media.php' );
+
 
 
 /**

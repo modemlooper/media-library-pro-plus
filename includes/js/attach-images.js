@@ -16,8 +16,135 @@ jQuery(document).ready(function($) {
     let attachedImages = 0;
     let startOffset = 0;
     let retryCount = 0;
+    let currentImages = [];
+    let currentImageIndex = 0;
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 5000; // 5 seconds
+
+    // Create preview dialog
+    const $previewDialog = $('<div>', {
+        id: 'mlpp-preview-dialog',
+        class: 'mlpp-preview-dialog',
+        css: {
+            display: 'none',
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: 'white',
+            padding: '20px',
+            borderRadius: '8px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+            zIndex: 100000
+        }
+    }).appendTo('body');
+
+    const $previewOverlay = $('<div>', {
+        id: 'mlpp-preview-overlay',
+        css: {
+            display: 'none',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            zIndex: 99999
+        }
+    }).appendTo('body');
+
+    const $previewImage = $('<img>', {
+        id: 'mlpp-preview-image',
+        css: {
+            maxWidth: '500px',
+            maxHeight: '400px',
+            display: 'block',
+            marginBottom: '15px'
+        }
+    }).appendTo($previewDialog);
+
+    const $previewInfo = $('<div>', {
+        id: 'mlpp-preview-info',
+        css: { marginBottom: '15px' }
+    }).appendTo($previewDialog);
+
+    const $previewButtons = $('<div>', {
+        css: { textAlign: 'right' }
+    }).appendTo($previewDialog);
+
+    const $skipButton = $('<button>', {
+        text: 'Skip',
+        class: 'button',
+        css: { marginRight: '10px' }
+    }).appendTo($previewButtons);
+
+    const $attachButton = $('<button>', {
+        text: 'Attach',
+        class: 'button button-primary'
+    }).appendTo($previewButtons);
+
+    function showPreviewDialog(imageData) {
+        $previewImage.attr('src', imageData.url);
+        $previewInfo.html(
+            `<strong>Post:</strong> ${imageData.post_title}<br>` +
+            `<strong>Image URL:</strong> ${imageData.url}`
+        );
+        $previewDialog.show();
+        $previewOverlay.show();
+    }
+
+    function hidePreviewDialog() {
+        $previewDialog.hide();
+        $previewOverlay.hide();
+    }
+
+    function processNextImage() {
+        if (currentImageIndex >= currentImages.length) {
+            // All images in current batch processed, continue with next post
+            processPosts($select.val(), startOffset + processedPosts);
+            return;
+        }
+
+        showPreviewDialog(currentImages[currentImageIndex]);
+    }
+
+    $skipButton.on('click', function() {
+        currentImageIndex++;
+        hidePreviewDialog();
+        processNextImage();
+    });
+
+    $attachButton.on('click', function() {
+        const imageData = currentImages[currentImageIndex];
+        
+        // Make AJAX call to attach the image
+        $.post(mlppAttachImages.ajaxurl, {
+            action: 'mlpp_attach_single_image',
+            nonce: mlppAttachImages.nonce,
+            image_url: imageData.url,
+            post_id: imageData.post_id
+        })
+        .done(function(response) {
+            if (response.success) {
+                attachedImages++;
+                $results.prepend(
+                    `<p class="success">✓ Attached image: ${imageData.url} to post: ${imageData.post_title}</p>`
+                );
+            } else {
+                $results.prepend(
+                    `<p class="error">✗ Failed to attach image: ${imageData.url} to post: ${imageData.post_title}</p>`
+                );
+            }
+        })
+        .fail(function(jqXHR) {
+            handleError(jqXHR);
+        })
+        .always(function() {
+            currentImageIndex++;
+            hidePreviewDialog();
+            processNextImage();
+        });
+    });
 
     $startButton.on('click', function() {
         const postType = $select.val();
@@ -98,81 +225,45 @@ jQuery(document).ready(function($) {
 
         $progressText.text(`Processing ${processedPosts + startOffset} of ${totalPosts} posts...`);
         
-        // Set a longer timeout for the AJAX request
-        $.ajax({
-            url: mlppAttachImages.ajaxurl,
-            type: 'POST',
-            data: {
-                action: 'mlpp_process_posts',
-                nonce: mlppAttachImages.nonce,
-                post_type: postType,
-                offset: offset
-            },
-            timeout: 120000, // 2 minute timeout
-            success: function(response) {
-                if (response.success && !isCancelled) {
-                    processedPosts += response.data.processed;
-                    attachedImages += response.data.attached;
+        $.post(mlppAttachImages.ajaxurl, {
+            action: 'mlpp_process_posts',
+            nonce: mlppAttachImages.nonce,
+            post_type: postType,
+            offset: offset
+        })
+        .done(function(response) {
+            if (response.success) {
+                if (response.data.images) {
+                    // New batch of images to process
+                    currentImages = response.data.images;
+                    currentImageIndex = 0;
+                    processNextImage();
+                } else if (response.data.done) {
+                    isProcessing = false;
+                    $startButton.show();
+                    $cancelButton.hide();
+                    $select.prop('disabled', false);
+                    $offset.prop('disabled', false);
+                    $progressText.text('Process completed');
                     
-                    // Update progress
-                    const progress = Math.min((processedPosts / (totalPosts - startOffset)) * 100, 100);
-                    $progress.css('width', progress + '%');
-                    $progressText.text(`Processing ${processedPosts + startOffset} of ${totalPosts} posts (${attachedImages} images attached)`);
-                    
-                    // Add posts to the list
-                    if (response.data.updated_posts && response.data.updated_posts.length > 0) {
-                        response.data.updated_posts.forEach(function(post) {
-                            $postList.append(
-                                `<li>
-                                    <a href="${post.edit_url}" target="_blank">${post.title}</a>
-                                    (${post.images_attached} image${post.images_attached > 1 ? 's' : ''} attached)
-                                </li>`
-                            );
-                        });
-                    }
-                    
-                    if (!response.data.done) {
-                        // Process next batch with a small delay to prevent overwhelming the server
-                        setTimeout(function() {
-                            processPosts(postType, offset + response.data.processed);
-                        }, 1000);
-                    } else {
-                        // Complete
-                        isProcessing = false;
-                        $cancelButton.hide();
-                        $startButton.show();
-                        $select.prop('disabled', false);
-                        $offset.prop('disabled', false);
-                        $progressText.text(`Complete! Processed ${processedPosts} posts (${attachedImages} images attached)`);
-                        
-                        $results.html(
-                            `<p>Started from offset: ${startOffset}<br>` +
-                            `Processed ${processedPosts} posts<br>` +
-                            `Attached ${attachedImages} images</p>`
-                        );
-                    }
-                }
-            },
-            error: function(jqXHR, textStatus, errorThrown) {
-                console.error('AJAX Error:', {
-                    status: jqXHR.status,
-                    statusText: jqXHR.statusText,
-                    responseText: jqXHR.responseText,
-                    errorThrown: errorThrown
-                });
-
-                // Implement retry logic
-                if (retryCount < MAX_RETRIES) {
-                    retryCount++;
-                    $progressText.text(`Retry attempt ${retryCount} of ${MAX_RETRIES} after ${RETRY_DELAY/1000} seconds...`);
-                    
-                    setTimeout(function() {
-                        processPosts(postType, offset, true);
-                    }, RETRY_DELAY);
+                    $results.prepend(
+                        `<p class="success">✓ Process completed<br>` +
+                        `Processed ${processedPosts} posts<br>` +
+                        `Started from offset: ${startOffset}<br>` +
+                        `Attached ${attachedImages} images</p>`
+                    );
                 } else {
-                    handleError(jqXHR);
+                    processedPosts++;
+                    const progress = ((processedPosts + startOffset) / totalPosts) * 100;
+                    $progress.css('width', progress + '%');
+                    
+                    // Continue with next post
+                    processPosts(postType, offset + 1);
                 }
             }
+        })
+        .fail(function(jqXHR) {
+            handleError(jqXHR);
         });
     }
 
