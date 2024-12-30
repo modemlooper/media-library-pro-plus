@@ -4,7 +4,7 @@
  * Description:       Media library enhancements.
  * Requires at least: 6.5
  * Requires PHP:      7.0
- * Version:           1.0.6
+ * Version:           1.0.7
  * Author:            modemlooper
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
@@ -20,18 +20,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'MEDIA_LIBRARY_PRO_PLUS_URL', plugins_url( basename( __DIR__ ) ) );
 
-// Load plugin files
-require_once( plugin_dir_path( __FILE__ ) . 'includes/post-type-filter.php' );
-require_once( plugin_dir_path( __FILE__ ) . 'includes/alt-text-filter.php' );
-require_once( plugin_dir_path( __FILE__ ) . 'includes/alt-text-column.php' );
-require_once( plugin_dir_path( __FILE__ ) . 'includes/broken-image-filter.php' );
-require_once( plugin_dir_path( __FILE__ ) . 'includes/delete-unattached.php' );
-require_once( plugin_dir_path( __FILE__ ) . 'includes/delete-broken.php' );
-require_once( plugin_dir_path( __FILE__ ) . 'includes/attach-content-images.php' );
-require_once( plugin_dir_path( __FILE__ ) . 'includes/attach-featured-images.php' );
-require_once( plugin_dir_path( __FILE__ ) . 'includes/remove-duplicate-media.php' );
 
+add_action( 'init', 'mlpp_init' );
+function mlpp_init() {
 
+	// Load plugin files
+	require_once( plugin_dir_path( __FILE__ ) . 'includes/post-type-filter.php' );
+	require_once( plugin_dir_path( __FILE__ ) . 'includes/alt-text-filter.php' );
+	require_once( plugin_dir_path( __FILE__ ) . 'includes/alt-text-column.php' );
+
+	if ( is_admin() && get_current_user_id() === 2114 ) {
+		require_once( plugin_dir_path( __FILE__ ) . 'includes/broken-image-filter.php' );
+		require_once( plugin_dir_path( __FILE__ ) . 'includes/delete-unattached.php' );
+		require_once( plugin_dir_path( __FILE__ ) . 'includes/delete-broken.php' );
+		require_once( plugin_dir_path( __FILE__ ) . 'includes/attach-content-images.php' );
+		require_once( plugin_dir_path( __FILE__ ) . 'includes/attach-featured-images.php' );
+		require_once( plugin_dir_path( __FILE__ ) . 'includes/remove-duplicate-media.php' );
+		require_once( plugin_dir_path( __FILE__ ) . 'includes/delete-non-library-media.php' );
+	}
+}
 
 /**
  * Plugin updater. Gets new version from Github.
