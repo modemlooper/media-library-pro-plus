@@ -30,6 +30,10 @@ function mlpp_featured_image_page_content() {
                 <?php endforeach; ?>
             </select>
             
+            <div style="margin: 15px 0;">
+                <p><strong>Note:</strong> The plugin will automatically try to find and set the first image from post content as the featured image when a post doesn't have one.</p>
+            </div>
+            
             <button id="mlpp-start-attachment" class="button button-primary">Start Attachment</button>
             
             <div id="mlpp-progress-container" style="display: none; margin-top: 20px;">
@@ -38,130 +42,218 @@ function mlpp_featured_image_page_content() {
                 </div>
                 <div id="mlpp-status">Ready to start...</div>
             </div>
+            
+            <div id="mlpp-results" style="margin-top: 20px; display: none;">
+                <h3>Results</h3>
+                <ul>
+                    <li>Posts processed: <span id="mlpp-posts-processed">0</span></li>
+                    <li>Featured images set: <span id="mlpp-images-set">0</span></li>
+                    <li>Posts without images in content: <span id="mlpp-no-images">0</span></li>
+                </ul>
+            </div>
         </div>
     </div>
-
-    <script>
-    jQuery(document).ready(function($) {
-        $('#mlpp-start-attachment').on('click', function() {
-            var postType = $('#mlpp-post-type-select').val();
-            if (!postType) {
-                alert('Please select a post type');
-                return;
-            }
-
-            var $progress = $('#mlpp-progress');
-            var $status = $('#mlpp-status');
-            var $container = $('#mlpp-progress-container');
-            
-            $container.show();
-            $(this).prop('disabled', true);
-
-            // Start the attachment process
-            attachFeaturedImages(postType);
-        });
-
-        function attachFeaturedImages(postType, offset = 0) {
-            $.ajax({
-                url: ajaxurl,
-                type: 'POST',
-                data: {
-                    action: 'mlpp_attach_featured_images',
-                    post_type: postType,
-                    offset: offset,
-                    nonce: '<?php echo wp_create_nonce("mlpp_attach_featured_images"); ?>'
-                },
-                success: function(response) {
-                    if (response.success) {
-                        var progress = (response.data.processed / response.data.total) * 100;
-                        $('#mlpp-progress').css('width', progress + '%');
-                        $('#mlpp-status').text('Processing: ' + response.data.processed + ' of ' + response.data.total);
-
-                        if (response.data.continue) {
-                            // Continue with next batch
-                            attachFeaturedImages(postType, response.data.offset);
-                        } else {
-                            // Process complete
-                            $('#mlpp-status').text('Complete! Processed ' + response.data.total + ' items.');
-                            $('#mlpp-start-attachment').prop('disabled', false);
-                        }
-                    } else {
-                        $('#mlpp-status').text('Error: ' + response.data.message);
-                        $('#mlpp-start-attachment').prop('disabled', false);
-                    }
-                },
-                error: function() {
-                    $('#mlpp-status').text('Error occurred during processing');
-                    $('#mlpp-start-attachment').prop('disabled', false);
-                }
-            });
-        }
-    });
-    </script>
     <?php
+    
+    // Enqueue JavaScript
+    wp_enqueue_script(
+        'mlpp-featured-image-script',
+        MEDIA_LIBRARY_PRO_PLUS_URL . '/assets/js/featured-image.js',
+        array('jquery'),
+        '1.0.0',
+        true
+    );
+    
+    // Pass data to JavaScript
+    wp_localize_script(
+        'mlpp-featured-image-script',
+        'mlppFeaturedImage',
+        array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('mlpp_featured_image_nonce'),
+        )
+    );
 }
 
-// Ajax handler for attachment process
-add_action('wp_ajax_mlpp_attach_featured_images', 'mlpp_handle_featured_image_attachment');
-function mlpp_handle_featured_image_attachment() {
-    check_ajax_referer('mlpp_attach_featured_images', 'nonce');
-    
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error(['message' => 'Insufficient permissions']);
+/**
+ * AJAX handler for processing posts
+ */
+add_action('wp_ajax_mlpp_process_featured_images', 'mlpp_process_featured_images_ajax');
+function mlpp_process_featured_images_ajax() {
+    // Verify nonce
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'mlpp_featured_image_nonce')) {
+        wp_send_json_error(array('message' => 'Security check failed'));
     }
-
-    $post_type = sanitize_text_field($_POST['post_type']);
-    $offset = intval($_POST['offset']);
-    $batch_size = 1; // Process 10 posts at a time
-
-    $args = [
+    
+    // Get post type and offset
+    $post_type = isset($_POST['post_type']) ? sanitize_text_field($_POST['post_type']) : 'post';
+    $offset = isset($_POST['offset']) ? intval($_POST['offset']) : 0;
+    $batch_size = 10; // Process 10 posts at a time
+    
+    // Get posts without featured images
+    $args = array(
         'post_type' => $post_type,
         'posts_per_page' => $batch_size,
         'offset' => $offset,
-        'post_status' => 'publish',
-        'meta_query' => [
-            [
+        'meta_query' => array(
+            array(
                 'key' => '_thumbnail_id',
                 'compare' => 'NOT EXISTS'
-            ]
-        ]
-    ];
-
+            )
+        )
+    );
+    
     $query = new WP_Query($args);
+    $posts = $query->posts;
     $total_posts = $query->found_posts;
+    
+    $processed = 0;
+    $images_set = 0;
+    $no_images = 0;
+    
+    foreach ($posts as $post) {
+        $processed++;
+        $result = mlpp_set_featured_from_content($post->ID);
+        
+        if ($result === true) {
+            $images_set++;
+        } else {
+            $no_images++;
+        }
+    }
+    
+    wp_send_json_success(array(
+        'processed' => $processed,
+        'images_set' => $images_set,
+        'no_images' => $no_images,
+        'total_posts' => $total_posts,
+        'offset' => $offset + $batch_size,
+        'complete' => ($offset + $batch_size >= $total_posts || empty($posts))
+    ));
+}
 
-    if ($query->have_posts()) {
-        while ($query->have_posts()) {
-            $query->the_post();
-            $post_id = get_the_ID();
-            
-            // Get the first image from the post content
-            $post_content = get_the_content();
-            preg_match_all('/<img.+src=[\'"]([^\'"]+)[\'"].*>/i', $post_content, $matches);
-            
-            if (!empty($matches[1])) {
-                $image_url = $matches[1][0];
-                $upload_dir = wp_upload_dir();
-                
-                // Check if image is from media library
-                if (strpos($image_url, $upload_dir['baseurl']) !== false) {
-                    $attachment_id = attachment_url_to_postid($image_url);
-                    if ($attachment_id) {
-                        set_post_thumbnail($post_id, $attachment_id);
-                    }
-                }
+/**
+ * Set featured image from the first image in post content
+ *
+ * @param int $post_id The post ID
+ * @return bool True if featured image was set, false otherwise
+ */
+function mlpp_set_featured_from_content($post_id) {
+    // Check if post already has a featured image
+    if (has_post_thumbnail($post_id)) {
+        return false;
+    }
+    
+    // Get post content
+    $post = get_post($post_id);
+    $content = $post->post_content;
+    
+    // Extract first image from content
+    $first_img = '';
+    $output = preg_match_all('/<img.+src=[\'"]([^\'"]*)[\'"]/i', $content, $matches);
+    
+    if (!empty($matches[1][0])) {
+        $first_img = $matches[1][0];
+    }
+    
+    // If no image found, check for block editor images
+    if (empty($first_img) && function_exists('parse_blocks')) {
+        $blocks = parse_blocks($content);
+        foreach ($blocks as $block) {
+            if ($block['blockName'] === 'core/image' && !empty($block['attrs']['id'])) {
+                // Found an image block with ID
+                set_post_thumbnail($post_id, $block['attrs']['id']);
+                return true;
             }
         }
-        wp_reset_postdata();
     }
+    
+    // If no image found, return false
+    if (empty($first_img)) {
+        return false;
+    }
+    
+    // Check if image is already in media library
+    $attachment_id = mlpp_get_attachment_id_from_url($first_img);
+    
+    if (!$attachment_id) {
+        // If not in media library, try to download it
+        $attachment_id = mlpp_download_and_attach_image($first_img, $post_id);
+    }
+    
+    if ($attachment_id) {
+        // Set as featured image
+        set_post_thumbnail($post_id, $attachment_id);
+        return true;
+    }
+    
+    return false;
+}
 
-    $processed = $offset + $batch_size;
-    $continue = $processed < $total_posts;
+/**
+ * Get attachment ID from URL
+ *
+ * @param string $url The attachment URL
+ * @return int|false Attachment ID or false if not found
+ */
+function mlpp_get_attachment_id_from_url($url) {
+    // Remove query string if any
+    $url = preg_replace('/\?.*/', '', $url);
+    
+    // Get the upload directory paths
+    $upload_dir_paths = wp_upload_dir();
+    $base_url = $upload_dir_paths['baseurl'];
+    
+    // If this is not a local URL, return false
+    if (strpos($url, $base_url) === false) {
+        return false;
+    }
+    
+    // Get the file path relative to the upload directory
+    $relative_path = str_replace($base_url . '/', '', $url);
+    
+    // Use custom query to find attachment by path
+    global $wpdb;
+    $attachment_id = $wpdb->get_var($wpdb->prepare("SELECT post_id FROM $wpdb->postmeta WHERE meta_key = '_wp_attached_file' AND meta_value = %s", $relative_path));
+    
+    return $attachment_id ? intval($attachment_id) : false;
+}
 
-    wp_send_json_success([
-        'processed' => min($processed, $total_posts),
-        'total' => $total_posts,
-        'continue' => $continue,
-        'offset' => $processed,
-    ]);
+/**
+ * Download external image and attach to post
+ *
+ * @param string $url The image URL
+ * @param int $post_id The post ID
+ * @return int|false Attachment ID or false if failed
+ */
+function mlpp_download_and_attach_image($url, $post_id) {
+    // Require WordPress media handling functions
+    require_once(ABSPATH . 'wp-admin/includes/media.php');
+    require_once(ABSPATH . 'wp-admin/includes/file.php');
+    require_once(ABSPATH . 'wp-admin/includes/image.php');
+    
+    // Download file to temp location
+    $temp_file = download_url($url);
+    
+    if (is_wp_error($temp_file)) {
+        return false;
+    }
+    
+    // Determine file name and mime type
+    $file_name = basename($url);
+    $file_array = array(
+        'name'     => $file_name,
+        'tmp_name' => $temp_file
+    );
+    
+    // Upload the image and attach it to the post
+    $attachment_id = media_handle_sideload($file_array, $post_id);
+    
+    // If error, clean up temp file
+    if (is_wp_error($attachment_id)) {
+        @unlink($temp_file);
+        return false;
+    }
+    
+    return $attachment_id;
 }

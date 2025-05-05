@@ -7,6 +7,7 @@ jQuery(document).ready(function($) {
     const $processedCount = $('.mlpp-processed');
     const $totalCount = $('.mlpp-total');
     const $message = $('.mlpp-message');
+    const $resultsContainer = $('#mlpp-results-container');
 
     // State variables
     let isProcessing = false;
@@ -15,6 +16,8 @@ jQuery(document).ready(function($) {
     let totalPosts = 0;
     let processedPosts = 0;
     let attachedImages = 0;
+    let downloadedImages = 0;
+    let contentUpdatedCount = 0;
 
     $startButton.on('click', function() {
         if (isProcessing) {
@@ -36,6 +39,8 @@ jQuery(document).ready(function($) {
         currentIndex = 0;
         processedPosts = 0;
         attachedImages = 0;
+        downloadedImages = 0;
+        contentUpdatedCount = 0;
         posts = [];
         
         // Reset UI
@@ -44,6 +49,7 @@ jQuery(document).ready(function($) {
         $processedCount.text('0');
         $totalCount.text('0');
         $message.empty();
+        $resultsContainer.empty();
         $progressContainer.show();
         
         // Get posts
@@ -80,7 +86,7 @@ jQuery(document).ready(function($) {
     function processNext() {
         if (!isProcessing || currentIndex >= totalPosts) {
             if (currentIndex >= totalPosts) {
-                $message.text(`Process completed! ${attachedImages} images attached across ${processedPosts} posts.`);
+                $message.text(`Process completed! ${attachedImages} images attached (${downloadedImages} downloaded, ${attachedImages - downloadedImages} existing) across ${processedPosts} posts. Content updated in ${contentUpdatedCount} posts.`);
             }
             resetProcess();
             return;
@@ -104,6 +110,38 @@ jQuery(document).ready(function($) {
                     if (response.data.attached) {
                         attachedImages += response.data.attached;
                     }
+                    if (response.data.downloaded) {
+                        downloadedImages += response.data.downloaded;
+                    }
+                    if (response.data.content_updated) {
+                        contentUpdatedCount++;
+                    }
+                    
+                    // Display detailed results
+                    const postResult = $('<div class="post-result"></div>');
+                    postResult.append(`<h4>Post: ${response.data.post_title}</h4>`);
+                    
+                    if (response.data.processed_images && response.data.processed_images.length > 0) {
+                        const imageList = $('<div class="image-list"></div>');
+                        response.data.processed_images.forEach(img => {
+                            const imageItem = $('<div class="image-item"></div>');
+                            if (img.thumbnail) {
+                                imageItem.append(`<img src="${img.thumbnail}" class="image-thumbnail" />`);
+                            }
+                            imageItem.append(`<div class="image-info">
+                                <strong>${img.title || 'Untitled'}</strong><br>
+                                Status: ${img.status.replace(/_/g, ' ')}<br>
+                                ${img.url}
+                                ${img.original_url ? `<br>Original URL: ${img.original_url}` : ''}
+                            </div>`);
+                            imageList.append(imageItem);
+                        });
+                        postResult.append(imageList);
+                    } else {
+                        postResult.append('<p>No images found in this post</p>');
+                    }
+                    
+                    $resultsContainer.prepend(postResult);
                     updateProgress();
                     $message.text(`Processed: ${post.title} - ${response.data.message}`);
                     processNext();

@@ -4,7 +4,7 @@
  * Description:       Media library enhancements.
  * Requires at least: 6.5
  * Requires PHP:      7.0
- * Version:           1.0.7
+ * Version:           1.0.8
  * Author:            modemlooper
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
@@ -28,6 +28,8 @@ function mlpp_init() {
 	require_once( plugin_dir_path( __FILE__ ) . 'includes/post-type-filter.php' );
 	require_once( plugin_dir_path( __FILE__ ) . 'includes/alt-text-filter.php' );
 	require_once( plugin_dir_path( __FILE__ ) . 'includes/alt-text-column.php' );
+	require_once( plugin_dir_path( __FILE__ ) . 'includes/convert-image-webp.php' );
+	require_once( plugin_dir_path( __FILE__ ) . 'includes/get-alt-text.php' );
 
 	if ( is_admin() && get_current_user_id() === 2114 ) {
 		require_once( plugin_dir_path( __FILE__ ) . 'includes/broken-image-filter.php' );
