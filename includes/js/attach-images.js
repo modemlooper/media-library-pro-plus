@@ -1,6 +1,7 @@
 jQuery(document).ready(function($) {
     // DOM elements
     const $select = $('#mlpp-post-type');
+    const $regexSuffix = $('#mlpp-regex-suffix');
     const $startButton = $('#mlpp-start-process');
     const $progressContainer = $('#mlpp-progress-container');
     const $progress = $('.mlpp-progress');
@@ -29,11 +30,13 @@ jQuery(document).ready(function($) {
             $message.text('Please select a post type');
             return;
         }
+        
+        const regexSuffix = $regexSuffix.val();
 
-        startProcess(postType);
+        startProcess(postType, regexSuffix);
     });
 
-    function startProcess(postType) {
+    function startProcess(postType, regexSuffix) {
         // Reset state
         isProcessing = true;
         currentIndex = 0;
@@ -68,7 +71,7 @@ jQuery(document).ready(function($) {
                     $totalCount.text(totalPosts);
                     
                     if (totalPosts > 0) {
-                        processNext();
+                        processNext(regexSuffix);
                     } else {
                         $message.text('No posts found for the selected post type.');
                         resetProcess();
@@ -83,7 +86,7 @@ jQuery(document).ready(function($) {
         });
     }
     
-    function processNext() {
+    function processNext(regexSuffix) {
         if (!isProcessing || currentIndex >= totalPosts) {
             if (currentIndex >= totalPosts) {
                 $message.text(`Process completed! ${attachedImages} images attached (${downloadedImages} downloaded, ${attachedImages - downloadedImages} existing) across ${processedPosts} posts. Content updated in ${contentUpdatedCount} posts.`);
@@ -101,7 +104,8 @@ jQuery(document).ready(function($) {
             data: {
                 action: 'mlpp_process_post',
                 nonce: mlppAttach.nonce,
-                post_id: post.ID
+                post_id: post.ID,
+                regex_suffix: regexSuffix
             },
             success: function(response) {
                 if (response.success) {
@@ -144,7 +148,7 @@ jQuery(document).ready(function($) {
                     $resultsContainer.prepend(postResult);
                     updateProgress();
                     $message.text(`Processed: ${post.title} - ${response.data.message}`);
-                    processNext();
+                    processNext(regexSuffix);
                 } else {
                     handleError('Error processing post: ' + response.data);
                 }

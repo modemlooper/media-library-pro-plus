@@ -105,6 +105,12 @@ class MLPP_Nassau_Inn_Alt_Text {
 					<p class="description"><?php _e( 'Comma-separated list of suffixes to remove from the search term. For example: "-1, -1-1, -2"', 'media-library-pro-plus' ); ?></p>
 				</div>
 				
+				<div class="form-field">
+					<label for="mlpp-custom-regex"><?php _e( 'Custom Suffix Regex', 'media-library-pro-plus' ); ?></label>
+					<input type="text" id="mlpp-custom-regex" value="/-\d+&#?\d+;?\d+(?:-\d+)?$/" class="regular-text" />
+					<p class="description"><?php _e( 'Custom regex pattern to remove suffixes from image slugs. Default pattern removes dimension suffixes like -300&#215;200-1', 'media-library-pro-plus' ); ?></p>
+				</div>
+				
 				<button id="mlpp-scan-alt-text" class="button button-primary"><?php _e( 'Scan for Images Without Alt Text', 'media-library-pro-plus' ); ?></button>
 				
 				<div id="mlpp-alt-text-results" style="display: none;">
@@ -128,6 +134,9 @@ class MLPP_Nassau_Inn_Alt_Text {
 				$('#mlpp-alt-text-status').text('<?php _e( 'Scanning for images without alt text...', 'media-library-pro-plus' ); ?>');
 				$('#mlpp-alt-text-list').empty();
 				$('#mlpp-alt-text-progress-bar').width('0%');
+				
+				// Get the custom regex pattern
+				var customRegex = $('#mlpp-custom-regex').val();
 				
 				// Get images without alt text
 				$.ajax({
@@ -368,7 +377,7 @@ class MLPP_Nassau_Inn_Alt_Text {
 		$search_term = ! empty( $slug ) ? $slug : $filename_without_ext;
 		
 		// Search Nassau Inn API
-		$alt_text = $this->search_nassau_inn_api( $search_term );
+		$alt_text = $this->search_nassau_inn_api( $search_term, $suffixes, $custom_regex );
 		
 		$updated = false;
 		
@@ -397,21 +406,34 @@ class MLPP_Nassau_Inn_Alt_Text {
 	 *
 	 * @param string $search_term The term to search for (slug or filename)
 	 * @param string $suffixes_input Optional. Comma-separated list of suffixes to remove
+	 * @param string $custom_regex Optional. Custom regex pattern to remove suffixes
 	 * @return string|false Alt text if found, false otherwise
 	 */
-	private function search_nassau_inn_api( $search_term, $suffixes_input = '' ) {
+	private function search_nassau_inn_api( $search_term, $suffixes_input = '', $custom_regex = '' ) {
 		// Get the list of suffixes to remove
 		if ( empty( $suffixes_input ) ) {
 			$suffixes_input = '-1, -1-1, -2';
 		}
 		$suffixes = array_map( 'trim', explode( ',', $suffixes_input ) );
 		
-		// Remove suffixes from the search term
+		// Remove suffixes from the search term using regex
 		$clean_search_term = $search_term;
-		foreach ( $suffixes as $suffix ) {
-			if ( ! empty( $suffix ) && substr( $clean_search_term, -strlen( $suffix ) ) === $suffix ) {
-				$clean_search_term = substr( $clean_search_term, 0, -strlen( $suffix ) );
-				break; // Stop after first match
+		
+		// Use default regex if not provided
+		if ( empty( $custom_regex ) ) {
+			$custom_regex = '/-\d+&#?\d+;?\d+(?:-\d+)?$/';
+		}
+		
+		// Try to remove suffixes using the custom regex pattern
+		$clean_search_term = preg_replace( $custom_regex, '', $clean_search_term );
+	
+		// If no match with the specific pattern, try the original suffix removal method
+		if ($clean_search_term === $search_term) {
+			foreach ( $suffixes as $suffix ) {
+				if ( ! empty( $suffix ) && substr( $clean_search_term, -strlen( $suffix ) ) === $suffix ) {
+					$clean_search_term = substr( $clean_search_term, 0, -strlen( $suffix ) );
+					break; // Stop after first match
+				}
 			}
 		}
 		

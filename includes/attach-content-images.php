@@ -29,6 +29,27 @@ function mlpp_attach_images_scripts($hook) {
         'ajaxurl' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('mlpp_attach_images_nonce')
     ));
+    
+    // Add inline CSS for the new options
+    $custom_css = "
+        .mlpp-options-row {
+            margin-bottom: 15px;
+        }
+        .mlpp-options-row label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        .mlpp-options-row input[type=text] {
+            width: 300px;
+        }
+        .description {
+            font-style: italic;
+            color: #666;
+            margin: 5px 0 0;
+        }
+    ";
+    wp_add_inline_style('mlpp-attach-images', $custom_css);
 }
 
 // Admin page callback
@@ -38,13 +59,23 @@ function mlpp_attach_images_page() {
     <div class="wrap">
         <h1>Attach Content Images</h1>
         <div class="mlpp-attach-container">
-            <select id="mlpp-post-type">
-                <?php foreach ($post_types as $post_type): ?>
-                    <option value="<?php echo esc_attr($post_type->name); ?>">
-                        <?php echo esc_html($post_type->labels->name); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+            <div class="mlpp-options-row">
+                <label for="mlpp-post-type">Post Type:</label>
+                <select id="mlpp-post-type">
+                    <?php foreach ($post_types as $post_type): ?>
+                        <option value="<?php echo esc_attr($post_type->name); ?>">
+                            <?php echo esc_html($post_type->labels->name); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <div class="mlpp-options-row">
+                <label for="mlpp-regex-suffix" title="Enter a regex pattern to match image slugs (e.g., -\d+&#215;\d+-\d+)">Regex Suffix Pattern:</label>
+                <input type="text" id="mlpp-regex-suffix" placeholder="e.g., -\d+&#215;\d+-\d+" value="-\d+&#215;\d+-\d*">
+                <p class="description">Pattern to match image slugs like "-1024&#215;431-2". Leave empty to disable.</p>
+            </div>
+            
             <button id="mlpp-start-process" class="button button-primary">Start Process</button>
             
             <div id="mlpp-progress-container" style="display: none;">
@@ -100,6 +131,7 @@ function mlpp_process_post() {
     }
 
     $post_id = intval($_POST['post_id']);
+    $regex_suffix = isset($_POST['regex_suffix']) ? sanitize_text_field($_POST['regex_suffix']) : '';
     $post = get_post($post_id);
     
     if (!$post) {
@@ -110,6 +142,9 @@ function mlpp_process_post() {
     $content = $post->post_content;
     $found_images = array();
     $processed_images = array();
+    
+    // Store if we're using regex suffix pattern
+    $using_regex_suffix = !empty($regex_suffix);
     
     // Method 1: Find all img tags
     preg_match_all('/<img[^>]+src=[\'"]([^\'"]+)[\'"][^>]*>/i', $content, $matches);
